@@ -52,5 +52,6 @@ setup(name="envdir",
       license='MIT',
       packages=['envdir'],
       entry_points=dict(console_scripts=['envdir=envdir:run',
+                                         'envshellfile=envdir:shellfile',
                                          'envshell=envdir:shell']),
       zip_safe=False)

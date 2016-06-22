@@ -1,5 +1,6 @@
 import glob
 import os
+import subprocess
 
 try:
     from UserDict import IterableUserDict as UserDict
@@ -95,3 +96,18 @@ class Env(UserDict):
         """
         for name in list(self.data.keys()):
             self._delete(name)
+
+
+class EnvFile(Env):
+    def __repr__(self):
+        return "<envdir.EnvFile '%s'>" % self.path
+
+    def _load(self):
+        proc = subprocess.Popen([
+            os.environ.get('SHELL', 'sh'), '-c', 'source {0} && env'.format(
+                self.path)], stdout=subprocess.PIPE
+        )
+
+        for name, value in [export.strip().split('=', 1)
+                            for export in proc.stdout]:
+            self._set(name.strip(), value.strip())

@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-from .env import Env
+from .env import Env, EnvFile
 from .version import __version__
 
 
@@ -16,23 +16,24 @@ class Response(Exception):
 class Runner(object):
     envdir_usage = "usage: %prog [--help] [--version] dir child"
     envshell_usage = "usage: %prog [--help] [--version] dir"
+    envshellfile_usage = "usage: %prog [--help] [--version] file child"
 
     def __init__(self):
         self.parser = optparse.OptionParser(version=__version__)
         self.parser.disable_interspersed_args()
         self.parser.prog = 'envdir'
 
-    def path(self, path):
+    def path(self, path, Env=Env):
         real_path = os.path.realpath(os.path.expanduser(path))
         if not os.path.exists(real_path):
             # use 111 error code to adher to envdir's standard
             raise Response("envdir %r does not exist" % path, 111)
-        if not os.path.isdir(real_path):
+        if Env != EnvFile and not os.path.isdir(real_path):
             # use 111 error code to adher to envdir's standard
             raise Response("envdir %r not a directory" % path, 111)
         return real_path
 
-    def open(self, path=None, stacklevel=1):
+    def open(self, path=None, stacklevel=1, Env=Env):
         if path is None:
             frame = sys._getframe()
 
@@ -47,7 +48,7 @@ class Runner(object):
             else:
                 # last holdout, assume cwd
                 path = 'envdir'
-        return Env(self.path(path))
+        return Env(self.path(path, Env=Env))
 
     def shell(self, name, *args):
         self.parser.set_usage(self.envshell_usage)
@@ -93,6 +94,32 @@ class Runner(object):
                            (self.parser.get_usage()), 2)
 
         self.open(args[0], 2)
+
+        # the args to call later
+        args = args[1:]
+
+        # in case someone passes in -- for any reason to separate the commands
+        if args[0] == '--':
+            args = args[1:]
+
+        try:
+            os.execvpe(args[0], args, os.environ)
+        except OSError as err:
+            raise Response("Unable to run command %s: %s" %
+                           (args[0], err), status=err.errno)
+
+        raise Response()
+
+    def shellfile(self, name, *args):
+        self.parser.set_usage(self.envdir_usage)
+        self.parser.prog = 'envshellfile'
+        options, args = self.parser.parse_args(list(args))
+
+        if len(args) < 2:
+            raise Response("%s\nError: incorrect number of arguments\n" %
+                           (self.parser.get_usage()), 2)
+
+        self.open(args[0], 2, Env=EnvFile)
 
         # the args to call later
         args = args[1:]

@@ -16,3 +16,7 @@ def run(*args):
 
 def shell(*args):
     go(runner.shell, *args)
+
+
+def shellfile(*args):
+    go(runner.shellfile, *args)
